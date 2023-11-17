@@ -10,10 +10,17 @@ sqlite3 *initDatabase() {
 
   rc = sqlite3_open("tn.db", &db);
   if (rc) {
-    printErr("Error opening database");
+    printErr("Error opening database %s", sqlite3_errmsg(db));
   }
 
   return db;
 }
 
-void closeDatabase(sqlite3 *db) { sqlite3_close(db); }
+void closeDatabase(sqlite3 *db) {
+  if (db != NULL) {
+    int rc = sqlite3_close(db);
+    if (rc != SQLITE_OK) {
+      fatalErr(sqlite3_errmsg(db));
+    }
+  }
+}
