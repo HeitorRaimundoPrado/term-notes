@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +38,7 @@ int getInput() {
   return c_in;
 }
 
-void mainLoop() {
+void mainLoop(sqlite3 *db) {
   char **msg = (char **)malloc(2 * sizeof(char *));
   msg[0] = (char *)malloc(5 * sizeof(char));
   msg[1] = (char *)malloc(5 * sizeof(char));

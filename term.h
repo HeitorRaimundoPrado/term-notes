@@ -1,7 +1,9 @@
 #ifndef TERM_H
 #define TERM_H
 
-void mainLoop();
+#include <sqlite3.h>
+
+void mainLoop(sqlite3 *db);
 void initTerm();
 void resetTerm();
 
