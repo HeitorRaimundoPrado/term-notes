@@ -9,11 +9,12 @@ struct string {
 };
 
 struct string *initStr();
-void strcpy(struct string *, const char *);
-void strcpy(struct string *, struct string *);
-void strcat(struct string *, const char *);
-void strcat(struct string *, struct string *);
-void sprintf(struct string *, const char *format, ...);
+void s_strcpy(struct string *, const char *);
+void ss_strcpy(struct string *, struct string *);
+void s_strcat(struct string *, const char *);
+void ss_strcat(struct string *, struct string *);
+void s_sprintf(struct string *, const char *format, ...);
+int s_strlen(struct string *);
 void cleanup(struct string *);
 
 struct Tag {

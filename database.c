@@ -58,8 +58,8 @@ sqlite3 *initDatabase() {
 void insertNote(struct Note *note, sqlite3 *db) {
   struct string *sql = initStr();
 
-  sprintf(sql, "INSERT INTO note VALUES(%lld, %lld, '%s', '%s')",
-          note->creation, note->lastmod, note->title, note->content);
+  s_sprintf(sql, "INSERT INTO note VALUES(%lld, %lld, '%s', '%s')",
+            note->creation, note->lastmod, note->title, note->content);
 
   char *zErrMsg;
   int rc = sqlite3_exec(db, sql->str, NULL, 0, &zErrMsg);
@@ -70,8 +70,8 @@ void insertNote(struct Note *note, sqlite3 *db) {
   }
 
   for (int i = 0; i < note->numTags; ++i) {
-    sprintf(sql, "INSERT INTO note_tags(%lld, %lld)", note->id,
-            note->tags[i]->id);
+    s_sprintf(sql, "INSERT INTO note_tags(%lld, %lld)", note->id,
+              note->tags[i]->id);
 
     rc = sqlite3_exec(db, sql->str, NULL, 0, &zErrMsg);
     if (rc != SQLITE_OK) {
@@ -83,5 +83,5 @@ void insertNote(struct Note *note, sqlite3 *db) {
 
 void insertTag(struct Tag *tag, sqlite3 *db) {
   struct string *sql = initStr();
-  sprintf(sql, "INSERT INTO tags VALUES('%s')", tag->name);
+  s_sprintf(sql, "INSERT INTO tags VALUES('%s')", tag->name);
 }

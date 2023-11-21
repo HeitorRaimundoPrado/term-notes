@@ -3,9 +3,63 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#include <windows.h>
+
+#else
 #include <termios.h>
 #include <unistd.h>
 
+#endif
+
+#ifdef _WIN32
+
+void initTerm() {
+  HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+  DWORD mode;
+
+  GetConsoleMode(hStdin, &mode);
+
+  SetConsoleMode(hStdin, mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT) |
+                             ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+}
+
+int getInput() {
+  char ch;
+  DWORD bytesread;
+  if (ReadConsoleA(GetStdHandle(STD_INPUT_HANDLE), &ch, 1, &bytesRead, NULL)) {
+    if (bytesRead > 0) {
+      return ch;
+    } else {
+      fatalErr("no chars read")
+    }
+  } else {
+    DWORD error = getLastError();
+    LPVOID errorMessage;
+    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+                  NULL, error, 0, (LPSTR)&errorMessage, 0, NULL);
+
+    fatalErr("Error reading from console");
+    localFree(errorMessage);
+  }
+
+  return 0;
+}
+
+void draw(int num_lines, char **lines) {
+  HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+  WriteConsoleA(hConsole, "\033[2J", 4);
+  WriteConsoleA(hConsole, "\033[1;1H", 6);
+
+  for (int i = 0; i < num_lines; ++i) {
+    DWORD charsWritten;
+    WriteConsoleA(hConsole, lines[i], lstrlenA(lines[i]), &charsWritten, NULL);
+    WriteConsoleA(hConsole, "\n\r", 1, &charsWritten, NULL);
+  }
+}
+
+#else
 static struct termios orig_termios;
 
 void resetTerm() {
@@ -38,27 +92,6 @@ int getInput() {
   return c_in;
 }
 
-void mainLoop(sqlite3 *db) {
-  char **msg = (char **)malloc(2 * sizeof(char *));
-  msg[0] = (char *)malloc(5 * sizeof(char));
-  msg[1] = (char *)malloc(5 * sizeof(char));
-
-  strcpy(msg[1], "world");
-  while (1) {
-    int c = getInput();
-
-    char *n = (char *)malloc(30 * sizeof(char));
-
-    sprintf(n, "%d", c);
-
-    strcpy(msg[0], n);
-    if (c == 0x03) // ctrl + c
-      break;
-
-    draw(1, msg);
-  }
-}
-
 void initTerm() {
   if (tcgetattr(STDIN_FILENO, &orig_termios) < 0) {
     fatalErr("can't get tty settings");
@@ -83,4 +116,27 @@ void initTerm() {
     fatalErr("can't set raw mode");
 
   write(STDOUT_FILENO, "\033[2J", 4);
+}
+
+#endif
+
+void mainLoop(sqlite3 *db) {
+  char **msg = (char **)malloc(2 * sizeof(char *));
+  msg[0] = (char *)malloc(5 * sizeof(char));
+  msg[1] = (char *)malloc(5 * sizeof(char));
+
+  strcpy(msg[1], "world");
+  while (1) {
+    int c = getInput();
+
+    char *n = (char *)malloc(30 * sizeof(char));
+
+    sprintf(n, "%d", c);
+
+    strcpy(msg[0], n);
+    if (c == 0x03) // ctrl + c
+      break;
+
+    draw(1, msg);
+  }
 }
