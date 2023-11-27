@@ -3,11 +3,11 @@
 #include <stdio.h>
 
 int main(int argc, char **argv) {
-  sqlite3 *db = initDatabase();
-  initTerm();
+    sqlite3 *db = initDatabase();
+    initTerm();
 
-  mainLoop(db);
+    mainLoop(db);
 
-  closeDatabase(db);
-  return 0;
+    closeDatabase(db);
+    return 0;
 }

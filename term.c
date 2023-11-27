@@ -21,27 +21,26 @@ void initTerm() {
 
   GetConsoleMode(hStdin, &mode);
 
-  SetConsoleMode(hStdin, mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT) |
-                             ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+  SetConsoleMode(hStdin, mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
 }
 
 int getInput() {
   char ch;
   DWORD bytesread;
-  if (ReadConsoleA(GetStdHandle(STD_INPUT_HANDLE), &ch, 1, &bytesRead, NULL)) {
-    if (bytesRead > 0) {
+  if (ReadConsoleA(GetStdHandle(STD_INPUT_HANDLE), &ch, 1, &bytesread, NULL)) {
+    if (bytesread > 0) {
       return ch;
     } else {
-      fatalErr("no chars read")
+      fatalErr("no chars read");
     }
   } else {
-    DWORD error = getLastError();
+    DWORD error = GetLastError();
     LPVOID errorMessage;
     FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
                   NULL, error, 0, (LPSTR)&errorMessage, 0, NULL);
 
     fatalErr("Error reading from console");
-    localFree(errorMessage);
+    LocalFree(errorMessage);
   }
 
   return 0;
@@ -49,8 +48,9 @@ int getInput() {
 
 void draw(int num_lines, char **lines) {
   HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-  WriteConsoleA(hConsole, "\033[2J", 4);
-  WriteConsoleA(hConsole, "\033[1;1H", 6);
+  DWORD chars;
+  WriteConsoleA(hConsole, "\033[2J", 4, &chars, NULL);
+  WriteConsoleA(hConsole, "\033[1;1H", 6, &chars, NULL);
 
   for (int i = 0; i < num_lines; ++i) {
     DWORD charsWritten;
