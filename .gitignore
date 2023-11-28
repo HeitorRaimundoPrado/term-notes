@@ -21,6 +21,9 @@
 *.a
 *.la
 *.lo
+sqlite3.h
+sqlite3.dll
+sqlite/*
 
 # Shared objects (inc. Windows DLLs)
 *.dll
