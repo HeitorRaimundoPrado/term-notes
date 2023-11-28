@@ -12,7 +12,6 @@ int main(int argc, char **argv) {
   }
 
   sqlite3 *db = initDatabase();
-
   initTerm();
 
   mainLoop(db);
