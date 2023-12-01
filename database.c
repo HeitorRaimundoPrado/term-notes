@@ -42,7 +42,7 @@ sqlite3 *initDatabase() {
   }
 
 
-  char sql[] = "CREATE TABLE IF NOT EXISTS tags("
+  char sql[] = /*"CREATE TABLE IF NOT EXISTS tags("
                "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                "name TEXT UNIQUE"
                ");"
@@ -68,7 +68,7 @@ sqlite3 *initDatabase() {
                 ");"
 
                 "CREATE TABLE IF NOT EXISTS note ("
-                "id INTEGER PRIMARY KEY,"
+                "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                 "creation DATE,"
                 "lastmod DATE,"
                 "title TEXT,"
