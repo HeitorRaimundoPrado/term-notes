@@ -25,7 +25,7 @@ sqlite3 *initDatabase() {
     printErr("Error opening database %s", sqlite3_errmsg(db));
   }
 
-  char sql[] = "CREATE TABLE IF NOT EXISTS tags("
+  char sql[] = /*"CREATE TABLE IF NOT EXISTS tags("
                "id INTEGER PRIMARY KEY,"
                "name TEXT UNIQUE"
                ");"
@@ -44,7 +44,27 @@ sqlite3 *initDatabase() {
                "PRIMARY KEY (note_id, tag_id),"
                "FOREIGN KEY (note_id) REFERENCES note(id),"
                "FOREIGN KEY (tag_id) REFERENCES tags(id)"
-               ");";
+               ");";*/
+                "CREATE TABLE IF NOT EXISTS tags("
+                "id INTEGER PRIMARY KEY,"
+                "name TEXT UNIQUE"
+                ");"
+
+                "CREATE TABLE IF NOT EXISTS note ("
+                "id INTEGER PRIMARY KEY,"
+                "creation DATE,"
+                "lastmod DATE,"
+                "title TEXT,"
+                "content TEXT"
+                ");"
+
+                "CREATE TABLE IF NOT EXISTS note_tags("
+                "note_id INTEGER,"
+                "tag_id INTEGER,"
+                "PRIMARY KEY (note_id, tag_id),"
+                "FOREIGN KEY (note_id) REFERENCES note(id),"
+                "FOREIGN KEY (tag_id) REFERENCES tags(id)"
+                ");";
 
   rc = sqlite3_exec(db, sql, NULL, 0, &zErrMsg);
   if (rc != SQLITE_OK) {
