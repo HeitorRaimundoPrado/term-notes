@@ -19,7 +19,7 @@ void cleanup(struct string *);
 
 struct Tag {
   int id;
-  struct string name;
+  struct string *name;
 };
 
 struct Note {
@@ -28,7 +28,7 @@ struct Note {
   time_t creation;
   time_t lastmod;
   int numTags;
-  struct Tag **tags;
+  int *tags;
   struct string *content;
 };
 #endif
