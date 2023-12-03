@@ -68,8 +68,8 @@ sqlite3 *initDatabase() {
 
       "CREATE TABLE IF NOT EXISTS note ("
       "id INTEGER PRIMARY KEY,"
-      "creation DATE,"
-      "lastmod DATE,"
+      "creation INTEGER,"
+      "lastmod INTEGER,"
       "title TEXT,"
       "content TEXT"
       ");"
@@ -96,8 +96,8 @@ void insertNote(struct Note *note, sqlite3 *db) {
 
   s_sprintf(sql,
             "INSERT INTO note(creation, lastmod, title, content) "
-            "VALUES(datetime(%lld, 'unixepoch'), "
-            "datetime(%lld, 'unixepoch'), '%s', '%s')",
+            "VALUES(%lld, "
+            "%lld, '%s', '%s')",
             note->creation, note->lastmod, note->title->str,
             note->content->str);
 
@@ -255,16 +255,10 @@ void retrieveAllNotes(sqlite3 *db, struct Note ***data) {
                  (const char *)sqlite3_column_text(stmt, i));
 
       } else if (strcmp(column_name, "lastmod") == 0) {
-        struct tm tm;
-        memset(&tm, 0, sizeof(struct tm));
-        strptime((const char *)sqlite3_column_text(stmt, i), "%Y-%m-%d", &tm);
-        (*data)[row]->lastmod = mktime(&tm);
+        (*data)[row]->lastmod = sqlite3_column_int(stmt, i);
 
       } else if (strcmp(column_name, "creation") == 0) {
-        struct tm tm;
-        memset(&tm, 0, sizeof(struct tm));
-        strptime((const char *)sqlite3_column_text(stmt, i), "%Y-%-%d", &tm);
-        (*data)[row]->creation = mktime(&tm);
+        (*data)[row]->creation = sqlite3_column_int(stmt, i);
       }
     }
     row++;
@@ -416,6 +410,8 @@ void testSqlite(sqlite3 *db) {
 
   struct Tag *testTag = getTag(db, 1);
 
+  STATIC_ASSERT(note1->lastmod == current_time, "Test lastmod passed",
+                "Test lastmod failed");
   STATIC_ASSERT(testTag->id == tag1->id, "Test getTag id passed",
                 "Test getTag id failed");
 

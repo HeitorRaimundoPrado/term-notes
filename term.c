@@ -106,7 +106,7 @@ void initTerm() {
 void draw(int num_lines, char **lines) {
   printf("\033[2J\033[1;1H");
   for (int i = 0; i < num_lines; ++i) {
-    printf("%s\n", lines[i]);
+    printf("%s\n\r", lines[i]);
   }
 }
 
@@ -118,19 +118,22 @@ int *mainView(sqlite3 *db, int _) {
   struct Note **notes =
       (struct Note **)malloc(numOfNotes * sizeof(struct Note *));
 
+  retrieveAllNotes(db, &notes);
+
   for (int i = 0; i < numOfNotes; ++i) {
     struct tm *lastMod_time_info, *created_time_info;
     lastMod_time_info = gmtime(&notes[i]->lastmod);
-    created_time_info = gmtime(&notes[i]->creation);
     if (lastMod_time_info == NULL) {
-      fprintf(stderr, "1null");
+      fatalErr("Error in gmtime");
     }
+
+    created_time_info = gmtime(&notes[i]->creation);
     if (created_time_info == NULL) {
-      fprintf(stderr, "2null");
+      fatalErr("Error in gmtime");
     }
 
     size_t requiredSize_lastMod =
-        strftime(NULL, 0, "%m/%d/%Y - %H:%M", lastMod_time_info);
+        strftime(NULL, -1, "%m/%d/%Y - %H:%M", lastMod_time_info);
 
     char *lastMod = (char *)malloc((requiredSize_lastMod + 1) * sizeof(char));
 
@@ -138,11 +141,11 @@ int *mainView(sqlite3 *db, int _) {
              lastMod_time_info);
 
     size_t requiredSize_created =
-        strftime(NULL, 0, "%m/%d/%Y - %H:%M", created_time_info);
+        strftime(NULL, -1, "%m/%d/%Y - %H:%M", created_time_info);
 
     char *created = (char *)malloc((requiredSize_created + 1) * sizeof(char));
 
-    strftime(created, requiredSize_created + 1, "%m/%d/%Y - %H: %M",
+    strftime(created, requiredSize_created + 1, "%m/%d/%Y - %H:%M",
              created_time_info);
 
     int size = 0;
@@ -155,7 +158,7 @@ int *mainView(sqlite3 *db, int _) {
       }
     }
 
-    char *tags = (char *)malloc((size + 1) * sizeof(char));
+    char *tags = (char *)calloc((size + 1), sizeof(char));
     for (int j = 0; j < notes[i]->numTags; ++j) {
       struct Tag *tag = getTag(db, notes[i]->tags[j]);
       if (j < notes[i]->numTags - 1) {
@@ -180,8 +183,6 @@ int *mainView(sqlite3 *db, int _) {
             notes[i]->title->str, lastMod, created, tags);
   }
 
-  fprintf(stderr, "gets here");
-  fprintf(stderr, "%d", numOfNotes);
   draw(numOfNotes, scr);
 
   int *ret = (int *)malloc(2 * sizeof(int));
@@ -204,7 +205,6 @@ void mainLoop(sqlite3 *db) {
     int *rc = (int *)malloc(2 * sizeof(int));
     rc = currentView(db, arg);
     if (bk) {
-      fprintf(stderr, "its here");
       break;
     }
 
