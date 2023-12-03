@@ -214,26 +214,27 @@ int *mainView(sqlite3 *db, int _) {
 
   int bk = 0;
 
+  const char *msg = "Create new note";
+  scr[numOfNotes] = (char *)malloc(strlen(msg) * sizeof(char));
+  strcpy(scr[numOfNotes], msg);
+
   char **scrCpy = (char **)malloc((numOfNotes + 1) * sizeof(char));
-  for (int i = 0; i < numOfNotes; ++i) {
+  for (int i = 0; i <= numOfNotes; ++i) {
     scrCpy[i] = (char *)malloc((strlen(scr[i]) + 1) * sizeof(char));
     strcpy(scrCpy[i], scr[i]);
   }
 
   while (1) {
-    for (int i = 0; i < numOfNotes; ++i) {
+    for (int i = 0; i < 1 + numOfNotes; ++i) {
       if (i == selectedLine) {
         size_t selectLineLen = snprintf(NULL, 0, "\033[7m%s\033[0m", scrCpy[i]);
-        char *intermediate = (char *)malloc(selectLineLen * sizeof(char));
-        strcpy(intermediate, scr[i]);
         scr[i] = (char *)realloc(scr[i], (selectLineLen + 1) * sizeof(char));
-        snprintf(scr[i], selectLineLen + 1, "\033[7m%s\033[0m", intermediate);
-        free(intermediate);
+        snprintf(scr[i], selectLineLen + 1, "\033[7m%s\033[0m", scrCpy[i]);
       } else {
         strcpy(scr[i], scrCpy[i]);
       }
     }
-    draw(numOfNotes, scr);
+    draw(numOfNotes + 1, scr);
 
     char userInp = getInput();
     switch (userInp) {
