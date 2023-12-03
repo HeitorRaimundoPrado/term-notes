@@ -7,6 +7,9 @@
 #include <string.h>
 #include <time.h>
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
 #ifdef _WIN32
 #include <windows.h>
 
@@ -19,6 +22,7 @@
 #ifdef _WIN32
 
 void initTerm() {
+  printf("\033[?25l");
   HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
   DWORD mode;
 
@@ -49,10 +53,22 @@ int getInput() {
   return 0;
 }
 
+void resetTerm() {
+  HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+  DWORD mode;
+
+  GetConsoleMode(hStdin, &mode);
+
+  SetConsoleMode(hStdin, mode | ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
+
+  printf("\033[?25h");
+}
+
 #else
 static struct termios orig_termios;
 
 void resetTerm() {
+  printf("\e[?25h"); // Show cursor
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) < 0) {
     fatalErr("error reseting terminal");
   }
@@ -75,6 +91,7 @@ int getInput() {
 }
 
 void initTerm() {
+  printf("\033[?25l");
   if (tcgetattr(STDIN_FILENO, &orig_termios) < 0) {
     fatalErr("can't get tty settings");
   }
@@ -106,8 +123,13 @@ void initTerm() {
 void draw(int num_lines, char **lines) {
   printf("\033[2J\033[1;1H");
   for (int i = 0; i < num_lines; ++i) {
-    printf("%s\n\r", lines[i]);
+    printf("%s", lines[i]);
+    if (i < num_lines - 1) {
+      printf("\n\r");
+    }
   }
+
+  fflush(stdout);
 }
 
 int *mainView(sqlite3 *db, int _) {
@@ -178,16 +200,74 @@ int *mainView(sqlite3 *db, int _) {
         snprintf(NULL, 0, "%s [last modified: %s] [created: %s] - tags: {%s}",
                  notes[i]->title->str, lastMod, created, tags);
 
-    scr[i] = (char *)malloc((len + 1) * sizeof(char));
+    scr[i] = NULL;
+    scr[i] = (char *)realloc(scr[i], (len + 1) * sizeof(char));
     sprintf(scr[i], "%s [last modified: %s] [created: %s] - tags: {%s}",
             notes[i]->title->str, lastMod, created, tags);
   }
 
-  draw(numOfNotes, scr);
+  int selectedLine = 0;
 
   int *ret = (int *)malloc(2 * sizeof(int));
   ret[0] = 0;
   ret[1] = 0;
+
+  int bk = 0;
+
+  char **scrCpy = (char **)malloc((numOfNotes + 1) * sizeof(char));
+  for (int i = 0; i < numOfNotes; ++i) {
+    scrCpy[i] = (char *)malloc((strlen(scr[i]) + 1) * sizeof(char));
+    strcpy(scrCpy[i], scr[i]);
+  }
+
+  while (1) {
+    for (int i = 0; i < numOfNotes; ++i) {
+      if (i == selectedLine) {
+        size_t selectLineLen = snprintf(NULL, 0, "\033[7m%s\033[0m", scrCpy[i]);
+        char *intermediate = (char *)malloc(selectLineLen * sizeof(char));
+        strcpy(intermediate, scr[i]);
+        scr[i] = (char *)realloc(scr[i], (selectLineLen + 1) * sizeof(char));
+        snprintf(scr[i], selectLineLen + 1, "\033[7m%s\033[0m", intermediate);
+        free(intermediate);
+      } else {
+        strcpy(scr[i], scrCpy[i]);
+      }
+    }
+    draw(numOfNotes, scr);
+
+    char userInp = getInput();
+    switch (userInp) {
+    case 3:
+      ret[0] = 0;
+      ret[1] = 0;
+      bk = 1;
+      break;
+
+    case '\033':
+      char c = getInput();
+      switch (c) {
+      case '[':
+        c = getInput();
+        switch (c) {
+        case 'A': // up arrow
+          selectedLine = MAX(selectedLine - 1, 0);
+          break;
+        case 'B':
+          selectedLine = MIN(selectedLine + 1, numOfNotes);
+          break;
+        }
+
+        break;
+      }
+
+      break;
+    }
+
+    if (bk) {
+      break;
+    }
+  }
+
   return ret;
 }
 
@@ -204,9 +284,6 @@ void mainLoop(sqlite3 *db) {
   while (1) {
     int *rc = (int *)malloc(2 * sizeof(int));
     rc = currentView(db, arg);
-    if (bk) {
-      break;
-    }
 
     switch (rc[0]) {
     case 0:
@@ -225,6 +302,10 @@ void mainLoop(sqlite3 *db) {
     case 3:
       currentView = &editNoteView;
       arg = rc[1];
+      break;
+    }
+
+    if (bk) {
       break;
     }
   }
