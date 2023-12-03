@@ -6,6 +6,12 @@ set(SOURCE_FILES main.c database.c term.c utils.c datatypes.c args.c)
 
 add_executable(term-notes ${SOURCE_FILES})
 
-target_link_libraries(term-notes PRIVATE ${CMAKE_SOURCE_DIR}/sqlite/sqlite3.lib)
+if (WIN32) 
+  target_link_libraries(term-notes PRIVATE ${CMAKE_SOURCE_DIR}/sqlite/sqlite3.lib)
+  target_include_directories(term-notes PRIVATE sqlite)
+endif()
 
-target_include_directories(term-notes PRIVATE sqlite)
+if (UNIX) 
+  target_link_libraries(term-notes PRIVATE sqlite3)
+endif()
+

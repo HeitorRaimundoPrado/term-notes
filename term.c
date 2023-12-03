@@ -1,8 +1,11 @@
+#include "database.h"
+#include "datatypes.h"
 #include "utils.h"
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -46,33 +49,12 @@ int getInput() {
   return 0;
 }
 
-void draw(int num_lines, char **lines) {
-  HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-  DWORD chars;
-  WriteConsoleA(hConsole, "\033[2J", 4, &chars, NULL);
-  WriteConsoleA(hConsole, "\033[1;1H", 6, &chars, NULL);
-
-  for (int i = 0; i < num_lines; ++i) {
-    DWORD charsWritten;
-    WriteConsoleA(hConsole, lines[i], lstrlenA(lines[i]), &charsWritten, NULL);
-    WriteConsoleA(hConsole, "\n\r", 1, &charsWritten, NULL);
-  }
-}
-
 #else
 static struct termios orig_termios;
 
 void resetTerm() {
-  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) < 0)
+  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) < 0) {
     fatalErr("error reseting terminal");
-}
-
-void draw(int num_lines, char **lines) {
-  write(STDOUT_FILENO, "\033[2J", 4);
-  write(STDOUT_FILENO, "\033[1;1H", 6);
-  for (int i = 0; i < num_lines; ++i) {
-    write(STDOUT_FILENO, "\n\r", 2);
-    write(STDOUT_FILENO, lines[i], strlen(lines[i]));
   }
 }
 
@@ -112,31 +94,138 @@ void initTerm() {
   raw.c_cc[VMIN] = 5;
   raw.c_cc[VTIME] = 8; /* after 5 bytes or .8 seconds after first byte seen */
 
-  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) < 0)
+  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) < 0) {
     fatalErr("can't set raw mode");
+  }
 
   write(STDOUT_FILENO, "\033[2J", 4);
 }
 
 #endif
 
+void draw(int num_lines, char **lines) {
+  printf("\033[2J\033[1;1H");
+  for (int i = 0; i < num_lines; ++i) {
+    printf("%s\n", lines[i]);
+  }
+}
+
+int *mainView(sqlite3 *db, int _) {
+
+  int numOfNotes = getNumOfNotes(db);
+  char **scr = (char **)malloc((numOfNotes + 1) * sizeof(char *));
+
+  struct Note **notes =
+      (struct Note **)malloc(numOfNotes * sizeof(struct Note *));
+
+  for (int i = 0; i < numOfNotes; ++i) {
+    struct tm *lastMod_time_info, *created_time_info;
+    lastMod_time_info = gmtime(&notes[i]->lastmod);
+    created_time_info = gmtime(&notes[i]->creation);
+    if (lastMod_time_info == NULL) {
+      fprintf(stderr, "1null");
+    }
+    if (created_time_info == NULL) {
+      fprintf(stderr, "2null");
+    }
+
+    size_t requiredSize_lastMod =
+        strftime(NULL, 0, "%m/%d/%Y - %H:%M", lastMod_time_info);
+
+    char *lastMod = (char *)malloc((requiredSize_lastMod + 1) * sizeof(char));
+
+    strftime(lastMod, requiredSize_lastMod + 1, "%m/%d/%Y - %H:%M",
+             lastMod_time_info);
+
+    size_t requiredSize_created =
+        strftime(NULL, 0, "%m/%d/%Y - %H:%M", created_time_info);
+
+    char *created = (char *)malloc((requiredSize_created + 1) * sizeof(char));
+
+    strftime(created, requiredSize_created + 1, "%m/%d/%Y - %H: %M",
+             created_time_info);
+
+    int size = 0;
+    for (int j = 0; j < notes[i]->numTags; ++j) {
+      struct Tag *tag = getTag(db, notes[i]->tags[j]);
+      if (j < notes[i]->numTags - 1) {
+        size += snprintf(NULL, 0, "%s, ", tag->name->str);
+      } else {
+        size += snprintf(NULL, 0, "%s", tag->name->str);
+      }
+    }
+
+    char *tags = (char *)malloc((size + 1) * sizeof(char));
+    for (int j = 0; j < notes[i]->numTags; ++j) {
+      struct Tag *tag = getTag(db, notes[i]->tags[j]);
+      if (j < notes[i]->numTags - 1) {
+        int sizeTag = snprintf(NULL, 0, "%s, ", tag->name->str);
+        char *thisTag = (char *)malloc((sizeTag + 1) * sizeof(char));
+        sprintf(thisTag, "%s, ", tag->name->str);
+        strcat(tags, thisTag);
+      } else {
+        int sizeTag = snprintf(NULL, 0, "%s", tag->name->str);
+        char *thisTag = (char *)malloc((sizeTag + 1) * sizeof(char));
+        sprintf(thisTag, "%s", tag->name->str);
+        strcat(tags, thisTag);
+      }
+    }
+
+    int len =
+        snprintf(NULL, 0, "%s [last modified: %s] [created: %s] - tags: {%s}",
+                 notes[i]->title->str, lastMod, created, tags);
+
+    scr[i] = (char *)malloc((len + 1) * sizeof(char));
+    sprintf(scr[i], "%s [last modified: %s] [created: %s] - tags: {%s}",
+            notes[i]->title->str, lastMod, created, tags);
+  }
+
+  fprintf(stderr, "gets here");
+  fprintf(stderr, "%d", numOfNotes);
+  draw(numOfNotes, scr);
+
+  int *ret = (int *)malloc(2 * sizeof(int));
+  ret[0] = 0;
+  ret[1] = 0;
+  return ret;
+}
+
+int *noteView(sqlite3 *, int note) { return 0; }
+
+int *editNoteView(sqlite3 *, int note) { return 0; }
+
 void mainLoop(sqlite3 *db) {
-  char **msg = (char **)malloc(2 * sizeof(char *));
-  msg[0] = (char *)malloc(5 * sizeof(char));
-  msg[1] = (char *)malloc(5 * sizeof(char));
+  int *(*currentView)(sqlite3 *, int);
+  currentView = &mainView;
+  int arg = -1;
 
-  strcpy(msg[1], "world");
+  int bk = 0;
   while (1) {
-    int c = getInput();
+    int *rc = (int *)malloc(2 * sizeof(int));
+    rc = currentView(db, arg);
+    if (bk) {
+      fprintf(stderr, "its here");
+      break;
+    }
 
-    char *n = (char *)malloc(30 * sizeof(char));
-
-    sprintf(n, "%d", c);
-
-    strcpy(msg[0], n);
-    if (c == 0x03) // ctrl + c
+    switch (rc[0]) {
+    case 0:
+      bk = 1;
       break;
 
-    draw(1, msg);
+    case 1:
+      currentView = &mainView;
+      break;
+
+    case 2:
+      currentView = &noteView;
+      arg = rc[1];
+      break;
+
+    case 3:
+      currentView = &editNoteView;
+      arg = rc[1];
+      break;
+    }
   }
 }
