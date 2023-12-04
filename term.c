@@ -20,9 +20,14 @@
 #endif
 
 #ifdef _WIN32
+HANDLE hConsole;
+CONSOLE_SCREEN_BUFFER_INFO originalConsoleInfo;
 
 void initTerm() {
   printf("\033[?25l");
+
+  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+  GetConsoleScreenBufferInfo(hConsole, &originalConsoleInfo);
   HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
   DWORD mode;
 
@@ -57,6 +62,9 @@ void resetTerm() {
   HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
   DWORD mode;
 
+  SetConsoleTextAttribute(hConsole, originalConsoleInfo.wAttributes);
+  SetConsoleCursorPosition(hConsole, originalConsoleInfo.dwCursorPosition);
+
   GetConsoleMode(hStdin, &mode);
 
   SetConsoleMode(hStdin, mode | ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
@@ -69,6 +77,7 @@ static struct termios orig_termios;
 
 void resetTerm() {
   printf("\e[?25h"); // Show cursor
+  system("tput rmcup");
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) < 0) {
     fatalErr("error reseting terminal");
   }
@@ -92,6 +101,7 @@ int getInput() {
 
 void initTerm() {
   printf("\033[?25l");
+  system("tput smcup");
   if (tcgetattr(STDIN_FILENO, &orig_termios) < 0) {
     fatalErr("can't get tty settings");
   }
@@ -188,11 +198,13 @@ int *mainView(sqlite3 *db, int _) {
         char *thisTag = (char *)malloc((sizeTag + 1) * sizeof(char));
         sprintf(thisTag, "%s, ", tag->name->str);
         strcat(tags, thisTag);
+        free(thisTag);
       } else {
         int sizeTag = snprintf(NULL, 0, "%s", tag->name->str);
         char *thisTag = (char *)malloc((sizeTag + 1) * sizeof(char));
         sprintf(thisTag, "%s", tag->name->str);
         strcat(tags, thisTag);
+        free(thisTag);
       }
     }
 
@@ -204,6 +216,10 @@ int *mainView(sqlite3 *db, int _) {
     scr[i] = (char *)realloc(scr[i], (len + 1) * sizeof(char));
     sprintf(scr[i], "%s [last modified: %s] [created: %s] - tags: {%s}",
             notes[i]->title->str, lastMod, created, tags);
+
+    free(tags);
+    free(created);
+    free(lastMod);
   }
 
   int selectedLine = 0;
@@ -245,11 +261,11 @@ int *mainView(sqlite3 *db, int _) {
       break;
 
     case '\033':
-      char c = getInput();
-      switch (c) {
+      userInp = getInput();
+      switch (userInp) {
       case '[':
-        c = getInput();
-        switch (c) {
+        userInp = getInput();
+        switch (userInp) {
         case 'A': // up arrow
           selectedLine = MAX(selectedLine - 1, 0);
           break;
@@ -265,6 +281,13 @@ int *mainView(sqlite3 *db, int _) {
     }
 
     if (bk) {
+      for (int i = 0; i < numOfNotes + 1; ++i) {
+        free(scr[i]);
+        free(scrCpy[i]);
+      }
+
+      free(scr);
+      free(scrCpy);
       break;
     }
   }
@@ -272,9 +295,9 @@ int *mainView(sqlite3 *db, int _) {
   return ret;
 }
 
-int *noteView(sqlite3 *, int note) { return 0; }
+int *noteView(sqlite3 *db, int note) { return 0; }
 
-int *editNoteView(sqlite3 *, int note) { return 0; }
+int *editNoteView(sqlite3 *db, int note) { return 0; }
 
 void mainLoop(sqlite3 *db) {
   int *(*currentView)(sqlite3 *, int);
