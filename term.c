@@ -139,4 +139,6 @@ void mainLoop(sqlite3 *db) {
 
     draw(1, msg);
   }
+
+  
 }

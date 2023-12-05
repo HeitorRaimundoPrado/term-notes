@@ -13,6 +13,16 @@
 #include <string.h>
 #include <time.h>
 
+char *strptime(const char *s, const char *format, struct tm *tm) {
+    if (sscanf(s, "%d-%d-%d", &tm->tm_year, &tm->tm_mon, &tm->tm_mday) == 3) {
+        tm->tm_year -= 1900; 
+        tm->tm_mon--;        
+        return (char *)(s + 10);  
+    }
+
+    return NULL;
+}
+
 #define STATIC_ASSERT(COND, MSG, MSG_FAIL)                                     \
   fprintf(stderr, "ASSERTION ON LINE %d ON FILE %s:\n", __LINE__, __FILE__);   \
   if (COND) {                                                                  \
@@ -263,7 +273,7 @@ void retrieveAllNotes(sqlite3 *db, struct Note ***data) {
       } else if (strcmp(column_name, "creation") == 0) {
         struct tm tm;
         memset(&tm, 0, sizeof(struct tm));
-        strptime((const char *)sqlite3_column_text(stmt, i), "%Y-%-%d", &tm);
+        strptime((const char *)sqlite3_column_text(stmt, i), "%Y-%m-%d", &tm);
         (*data)[row]->creation = mktime(&tm);
       }
     }
