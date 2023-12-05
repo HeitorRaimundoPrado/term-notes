@@ -106,7 +106,7 @@ void s_sprintf(struct string *str, const char *format, ...) {
   va_end(args);
 
   if (sz >= str->allocatedSpace) {
-    str->allocatedSpace += sz + str->allocatedSpace;
+    str->allocatedSpace += sz;
     str->str = (char *)realloc(str->str, str->allocatedSpace * sizeof(char));
     if (str->str == NULL) {
       fatalErr("memory allocation error");
