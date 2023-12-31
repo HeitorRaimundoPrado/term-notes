@@ -142,6 +142,76 @@ void draw(int num_lines, char **lines) {
   fflush(stdout);
 }
 
+// returns a formated string for a note with all its information
+void generateNoteString(sqlite3 *db, struct Note *note, char **out) {
+  struct tm *lastMod_time_info, *created_time_info;
+  lastMod_time_info = gmtime(&note->lastmod);
+  if (lastMod_time_info == NULL) {
+    fatalErr("Error in gmtime");
+  }
+
+  created_time_info = gmtime(&note->creation);
+  if (created_time_info == NULL) {
+    fatalErr("Error in gmtime");
+  }
+
+  size_t requiredSize_lastMod =
+      strftime(NULL, -1, "%m/%d/%Y - %H:%M", lastMod_time_info);
+
+  char *lastMod = (char *)malloc((requiredSize_lastMod + 1) * sizeof(char));
+
+  strftime(lastMod, requiredSize_lastMod + 1, "%m/%d/%Y - %H:%M",
+           lastMod_time_info);
+
+  size_t requiredSize_created =
+      strftime(NULL, -1, "%m/%d/%Y - %H:%M", created_time_info);
+
+  char *created = (char *)malloc((requiredSize_created + 1) * sizeof(char));
+  strftime(created, requiredSize_created + 1, "%m/%d/%Y - %H:%M",
+           created_time_info);
+
+  int size = 0;
+  for (int j = 0; j < note->numTags; ++j) {
+    struct Tag *tag = getTag(db, note->tags[j]);
+    if (j < note->numTags - 1) {
+      size += snprintf(NULL, 0, "%s, ", tag->name->str);
+    } else {
+      size += snprintf(NULL, 0, "%s", tag->name->str);
+    }
+  }
+
+  char *tags = (char *)calloc((size + 1), sizeof(char));
+  for (int j = 0; j < note->numTags; ++j) {
+    struct Tag *tag = getTag(db, note->tags[j]);
+    if (j < note->numTags - 1) {
+      int sizeTag = snprintf(NULL, 0, "%s, ", tag->name->str);
+      char *thisTag = (char *)malloc((sizeTag + 1) * sizeof(char));
+      sprintf(thisTag, "%s, ", tag->name->str);
+      strcat(tags, thisTag);
+      free(thisTag);
+    } else {
+      int sizeTag = snprintf(NULL, 0, "%s", tag->name->str);
+      char *thisTag = (char *)malloc((sizeTag + 1) * sizeof(char));
+      sprintf(thisTag, "%s", tag->name->str);
+      strcat(tags, thisTag);
+      free(thisTag);
+    }
+  }
+
+  int len =
+      snprintf(NULL, 0, "%s [last modified: %s] [created: %s] - tags: {%s}",
+               note->title->str, lastMod, created, tags);
+
+  *out = NULL;
+  *out = (char *)realloc(*out, (len + 1) * sizeof(char));
+  sprintf(*out, "%s [last modified: %s] [created: %s] - tags: {%s}",
+          note->title->str, lastMod, created, tags);
+
+  free(tags);
+  free(created);
+  free(lastMod);
+}
+
 int *mainView(sqlite3 *db, int _) {
 
   int numOfNotes = getNumOfNotes(db);
@@ -153,73 +223,7 @@ int *mainView(sqlite3 *db, int _) {
   retrieveAllNotes(db, &notes);
 
   for (int i = 0; i < numOfNotes; ++i) {
-    struct tm *lastMod_time_info, *created_time_info;
-    lastMod_time_info = gmtime(&notes[i]->lastmod);
-    if (lastMod_time_info == NULL) {
-      fatalErr("Error in gmtime");
-    }
-
-    created_time_info = gmtime(&notes[i]->creation);
-    if (created_time_info == NULL) {
-      fatalErr("Error in gmtime");
-    }
-
-    size_t requiredSize_lastMod =
-        strftime(NULL, -1, "%m/%d/%Y - %H:%M", lastMod_time_info);
-
-    char *lastMod = (char *)malloc((requiredSize_lastMod + 1) * sizeof(char));
-
-    strftime(lastMod, requiredSize_lastMod + 1, "%m/%d/%Y - %H:%M",
-             lastMod_time_info);
-
-    size_t requiredSize_created =
-        strftime(NULL, -1, "%m/%d/%Y - %H:%M", created_time_info);
-
-    char *created = (char *)malloc((requiredSize_created + 1) * sizeof(char));
-
-    strftime(created, requiredSize_created + 1, "%m/%d/%Y - %H:%M",
-             created_time_info);
-
-    int size = 0;
-    for (int j = 0; j < notes[i]->numTags; ++j) {
-      struct Tag *tag = getTag(db, notes[i]->tags[j]);
-      if (j < notes[i]->numTags - 1) {
-        size += snprintf(NULL, 0, "%s, ", tag->name->str);
-      } else {
-        size += snprintf(NULL, 0, "%s", tag->name->str);
-      }
-    }
-
-    char *tags = (char *)calloc((size + 1), sizeof(char));
-    for (int j = 0; j < notes[i]->numTags; ++j) {
-      struct Tag *tag = getTag(db, notes[i]->tags[j]);
-      if (j < notes[i]->numTags - 1) {
-        int sizeTag = snprintf(NULL, 0, "%s, ", tag->name->str);
-        char *thisTag = (char *)malloc((sizeTag + 1) * sizeof(char));
-        sprintf(thisTag, "%s, ", tag->name->str);
-        strcat(tags, thisTag);
-        free(thisTag);
-      } else {
-        int sizeTag = snprintf(NULL, 0, "%s", tag->name->str);
-        char *thisTag = (char *)malloc((sizeTag + 1) * sizeof(char));
-        sprintf(thisTag, "%s", tag->name->str);
-        strcat(tags, thisTag);
-        free(thisTag);
-      }
-    }
-
-    int len =
-        snprintf(NULL, 0, "%s [last modified: %s] [created: %s] - tags: {%s}",
-                 notes[i]->title->str, lastMod, created, tags);
-
-    scr[i] = NULL;
-    scr[i] = (char *)realloc(scr[i], (len + 1) * sizeof(char));
-    sprintf(scr[i], "%s [last modified: %s] [created: %s] - tags: {%s}",
-            notes[i]->title->str, lastMod, created, tags);
-
-    free(tags);
-    free(created);
-    free(lastMod);
+    generateNoteString(db, notes[i], &scr[i]);
   }
 
   int selectedLine = 0;
@@ -260,6 +264,19 @@ int *mainView(sqlite3 *db, int _) {
       bk = 1;
       break;
 
+    case '\r':
+    case '\n':
+      bk = 1;
+
+      if (selectedLine < numOfNotes) {
+        ret[0] = 2;
+        ret[1] = notes[selectedLine]->id;
+        break;
+      }
+
+      ret[0] = 6;
+      break;
+
     case '\033':
       userInp = getInput();
       switch (userInp) {
@@ -295,9 +312,125 @@ int *mainView(sqlite3 *db, int _) {
   return ret;
 }
 
-int *noteView(sqlite3 *db, int note) { return 0; }
+int *noteView(sqlite3 *db, int note_id) {
+
+  int *ret = (int *)malloc(2 * sizeof(int));
+
+  int cursor_line = 1;
+
+  const int NUM_OF_LINES = 5;
+  char **scr = (char **)malloc(NUM_OF_LINES * sizeof(char *));
+  char **rendered_scr = (char **)malloc(NUM_OF_LINES * sizeof(char *));
+
+  struct Note *note = (struct Note *)malloc(1 * sizeof(struct Note *));
+
+  retrieveNote(db, note_id, &note);
+  generateNoteString(db, note, &scr[0]);
+
+  scr[1] = (char *)malloc(strlen("Edit Note") * sizeof(char));
+  strcpy(scr[1], "Edit Note");
+
+  scr[2] = (char *)malloc(strlen("Add Tag") * sizeof(char));
+  strcpy(scr[2], "Add Tag");
+
+  scr[3] = (char *)malloc(strlen("Remove Tag") * sizeof(char));
+  strcpy(scr[3], "Remove Tag");
+
+  scr[4] = (char *)malloc(strlen("Back <-") * sizeof(char));
+  strcpy(scr[4], "Back <-");
+
+  int bk = 0;
+
+  while (1) {
+    for (int i = 0; i < NUM_OF_LINES; ++i) {
+      if (i == cursor_line) {
+        size_t cursor_line_len = snprintf(NULL, 0, "\033[7m%s\033[0m", scr[i]);
+        rendered_scr[i] = (char *)malloc((cursor_line_len + 1) * sizeof(char));
+        snprintf(rendered_scr[i], cursor_line_len + 1, "\033[7m%s\033[0m",
+                 scr[i]);
+      }
+
+      else {
+        rendered_scr[i] = (char *)malloc(strlen(scr[i]) * sizeof(char));
+        strcpy(rendered_scr[i], scr[i]);
+      }
+    }
+
+    draw(5, rendered_scr);
+    char inp = getInput();
+
+    switch (inp) {
+    case 3:
+      ret[0] = 0;
+      ret[1] = 0;
+      bk = 1;
+      break;
+
+    case '\r':
+    case '\n':
+      switch (cursor_line) {
+      case 1:
+        ret[0] = 3;
+        ret[1] = note_id;
+        break;
+
+      case 2:
+        ret[0] = 4;
+        ret[1] = note_id;
+        break;
+
+      case 3:
+        ret[0] = 5;
+        ret[1] = note_id;
+        break;
+
+      case 4:
+        ret[0] = 1;
+      }
+      bk = 1;
+      break;
+
+    case '\033':
+      inp = getInput();
+      switch (inp) {
+      case '[':
+        inp = getInput();
+        switch (inp) {
+        case 'A':
+          cursor_line = MAX(cursor_line - 1, 1);
+          break;
+
+        case 'B':
+          cursor_line = MIN(cursor_line + 1, NUM_OF_LINES - 1);
+          break;
+        }
+        break;
+      }
+      break;
+    }
+
+    if (bk) {
+      break;
+    }
+  }
+
+  for (int i = 0; i < NUM_OF_LINES; ++i) {
+    free(scr[i]);
+    free(rendered_scr[i]);
+  }
+
+  free(rendered_scr);
+  free(scr);
+  return ret;
+}
 
 int *editNoteView(sqlite3 *db, int note) { return 0; }
+
+int *addTagView(sqlite3 *db, int note) { return 0; }
+
+int *removeTagView(sqlite3 *db, int note) { return 0; }
+
+int *addNoteView(sqlite3 *db, int _) { return 0; }
 
 void mainLoop(sqlite3 *db) {
   int *(*currentView)(sqlite3 *, int);
@@ -327,6 +460,17 @@ void mainLoop(sqlite3 *db) {
       currentView = &editNoteView;
       arg = rc[1];
       break;
+
+    case 4:
+      currentView = &addTagView;
+      arg = rc[1];
+
+    case 5:
+      currentView = &removeTagView;
+      arg = rc[1];
+
+    case 6:
+      currentView = &addNoteView;
     }
 
     if (bk) {

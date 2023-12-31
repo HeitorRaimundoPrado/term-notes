@@ -41,15 +41,15 @@ sqlite3 *initDatabase() {
     printErr("Error opening database %s", sqlite3_errmsg(db));
   }
 
-  char sql[] = /*"CREATE TABLE IF NOT EXISTS tags("
-               "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+  char sql[] = "CREATE TABLE IF NOT EXISTS tags("
+               "id INTEGER PRIMARY KEY,"
                "name TEXT UNIQUE"
                ");"
 
                "CREATE TABLE IF NOT EXISTS note ("
-               "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-               "creation DATE,"
-               "lastmod DATE,"
+               "id INTEGER PRIMARY KEY,"
+               "creation INTEGER,"
+               "lastmod INTEGER,"
                "title TEXT,"
                "content TEXT"
                ");"
@@ -60,27 +60,7 @@ sqlite3 *initDatabase() {
                "PRIMARY KEY (note_id, tag_id),"
                "FOREIGN KEY (note_id) REFERENCES note(id),"
                "FOREIGN KEY (tag_id) REFERENCES tags(id)"
-               ");";*/
-      "CREATE TABLE IF NOT EXISTS tags("
-      "id INTEGER PRIMARY KEY,"
-      "name TEXT UNIQUE"
-      ");"
-
-      "CREATE TABLE IF NOT EXISTS note ("
-      "id INTEGER PRIMARY KEY,"
-      "creation INTEGER,"
-      "lastmod INTEGER,"
-      "title TEXT,"
-      "content TEXT"
-      ");"
-
-      "CREATE TABLE IF NOT EXISTS note_tags("
-      "note_id INTEGER,"
-      "tag_id INTEGER,"
-      "PRIMARY KEY (note_id, tag_id),"
-      "FOREIGN KEY (note_id) REFERENCES note(id),"
-      "FOREIGN KEY (tag_id) REFERENCES tags(id)"
-      ");";
+               ");";
 
   rc = sqlite3_exec(db, sql, NULL, 0, &zErrMsg);
   if (rc != SQLITE_OK) {
@@ -168,12 +148,85 @@ int getNumOfNotes(sqlite3 *db) {
   return rowCount;
 }
 
+void retrieveNote(sqlite3 *db, int note_id, struct Note **data) {
+  sqlite3_stmt *stmt;
+  size_t len = snprintf(NULL, 0, "SELECT * FROM note WHERE id = %d", note_id);
+
+  char *query = (char *)malloc((len + 1) * sizeof(char));
+  snprintf(query, len + 1, "SELECT * FROM note WHERE id = %d", note_id);
+  int rc = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
+
+  if (rc != SQLITE_OK) {
+    printErr("%s", sqlite3_errmsg(db));
+    fatalErr("error preparing SQL statement");
+  }
+
+  if (sqlite3_step(stmt) == SQLITE_ROW) {
+    int column_count = sqlite3_column_count(stmt);
+    for (int i = 0; i < column_count; ++i) {
+      const char *column_name = sqlite3_column_name(stmt, i);
+      if (strcmp(column_name, "id") == 0) {
+        (*data)->id = sqlite3_column_int(stmt, i);
+
+        struct string *note_tag_query = initStr();
+        sqlite3_stmt *stmt2;
+
+        s_sprintf(note_tag_query, "SELECT * FROM note_tags WHERE note_id=%d",
+                  (*data)->id);
+
+        rc = sqlite3_prepare_v2(db, note_tag_query->str, -1, &stmt2, NULL);
+        if (rc != SQLITE_OK) {
+          printErr(sqlite3_errmsg(db));
+          fatalErr("error preparing statement");
+        }
+
+        int row_count_nt = 0;
+        while ((rc = sqlite3_step(stmt2) == SQLITE_ROW))
+          row_count_nt++;
+
+        (*data)->numTags = row_count_nt;
+        (*data)->tags = (int *)malloc(row_count_nt * sizeof(int));
+        int k = 0;
+        while ((rc = sqlite3_step(stmt2)) == SQLITE_ROW) {
+          int column_count_nt = sqlite3_column_count(stmt2);
+
+          for (int j = 0; j < column_count_nt; ++j) {
+            const char *column_name_tags = sqlite3_column_name(stmt2, j);
+            if (strcmp(column_name_tags, "tag_id") == 0) {
+              (*data)->tags[k++] = sqlite3_column_int(stmt2, j);
+            }
+          }
+        }
+
+        sqlite3_finalize(stmt2);
+      } else if (strcmp(column_name, "title") == 0) {
+        (*data)->title = initStr();
+        s_strcpy((*data)->title, (const char *)sqlite3_column_text(stmt, i));
+
+      } else if (strcmp(column_name, "content") == 0) {
+        (*data)->content = initStr();
+        s_strcpy((*data)->content, (const char *)sqlite3_column_text(stmt, i));
+
+      } else if (strcmp(column_name, "lastmod") == 0) {
+        (*data)->lastmod = sqlite3_column_int(stmt, i);
+
+      } else if (strcmp(column_name, "creation") == 0) {
+        (*data)->creation = sqlite3_column_int(stmt, i);
+      }
+    }
+  }
+
+  else {
+    fatalErr("Tried retrieving a note that does not exist");
+  }
+}
+
 void retrieveAllNotes(sqlite3 *db, struct Note ***data) {
   sqlite3_stmt *stmt;
   const char *pragma_query = "PRAGMA table_info(note)";
   int rc = sqlite3_prepare_v2(db, pragma_query, -1, &stmt, NULL);
   if (rc != SQLITE_OK) {
-    printErr(sqlite3_errmsg(db));
+    printErr("%s", sqlite3_errmsg(db));
     fatalErr("error getting table info");
   }
 
